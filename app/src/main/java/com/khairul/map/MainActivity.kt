@@ -1,5 +1,6 @@
 package com.khairul.map
 
+import android.app.Activity
 import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
@@ -19,6 +20,10 @@ import com.google.android.gms.ads.AdRequest
 import com.google.android.gms.ads.AdSize
 import com.google.android.gms.ads.AdView
 import com.google.android.gms.ads.MobileAds
+import com.google.android.gms.ads.FullScreenContentCallback
+import com.google.android.gms.ads.LoadAdError
+import com.google.android.gms.ads.interstitial.InterstitialAd
+import com.google.android.gms.ads.interstitial.InterstitialAdLoadCallback
 import com.google.android.gms.maps.model.CameraPosition
 import com.google.android.gms.maps.model.LatLng
 import com.google.maps.android.compose.*
@@ -76,13 +81,41 @@ private fun KhairulMapScreen() {
             Button(
                 onClick = {
                     if (destination.isNotBlank()) {
-                        val uri = Uri.parse("google.navigation:q=" + Uri.encode(destination))
-                        val intent = Intent(Intent.ACTION_VIEW, uri).setPackage("com.google.android.apps.maps")
-                        try {
-                            context.startActivity(intent)
-                        } catch (_: Exception) {
-                            context.startActivity(
-                                Intent(Intent.ACTION_VIEW, Uri.parse("https://www.google.com/maps/search/?api=1&query=" + Uri.encode(destination)))
+                        val activity = context as? Activity
+                        val openDestination = {
+                            val uri = Uri.parse("google.navigation:q=" + Uri.encode(destination))
+                            val intent = Intent(Intent.ACTION_VIEW, uri).setPackage("com.google.android.apps.maps")
+                            try {
+                                context.startActivity(intent)
+                            } catch (_: Exception) {
+                                context.startActivity(
+                                    Intent(Intent.ACTION_VIEW, Uri.parse("https://www.google.com/maps/search/?api=1&query=" + Uri.encode(destination)))
+                                )
+                            }
+                        }
+                        if (activity == null) {
+                            openDestination()
+                        } else {
+                            InterstitialAd.load(
+                                context,
+                                "ca-app-pub-3940256099942544/1033173712", // Official Google test interstitial
+                                AdRequest.Builder().build(),
+                                object : InterstitialAdLoadCallback() {
+                                    override fun onAdLoaded(ad: InterstitialAd) {
+                                        ad.fullScreenContentCallback = object : FullScreenContentCallback() {
+                                            override fun onAdDismissedFullScreenContent() {
+                                                openDestination()
+                                            }
+                                            override fun onAdFailedToShowFullScreenContent(error: com.google.android.gms.ads.AdError) {
+                                                openDestination()
+                                            }
+                                        }
+                                        ad.show(activity)
+                                    }
+                                    override fun onAdFailedToLoad(error: LoadAdError) {
+                                        openDestination()
+                                    }
+                                }
                             )
                         }
                     }
