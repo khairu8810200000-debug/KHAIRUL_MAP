@@ -10,9 +10,8 @@ android {
         applicationId = "com.khairul.map"
         minSdk = 23
         targetSdk = 35
-        versionCode = 1
-        versionName = "1.0"
-        manifestPlaceholders["MAPS_API_KEY"] = (project.findProperty("MAPS_API_KEY") as String?) ?: "MISSING_MAPS_API_KEY"
+        versionCode = 2
+        versionName = "1.1"
     }
     buildFeatures { compose = true }
     compileOptions {
@@ -28,8 +27,7 @@ dependencies {
     implementation("androidx.compose.ui:ui-tooling-preview")
     implementation("androidx.compose.material3:material3")
     implementation("androidx.compose.material:material-icons-extended")
-    implementation("com.google.android.gms:play-services-maps:19.0.0")
-    implementation("com.google.maps.android:maps-compose:6.4.1")
+    implementation("org.osmdroid:osmdroid-android:6.1.20")
     implementation("com.google.android.gms:play-services-ads:23.6.0")
     debugImplementation("androidx.compose.ui:ui-tooling")
 }
