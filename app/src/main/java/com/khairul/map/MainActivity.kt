@@ -16,6 +16,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
+import org.osmdroid.config.Configuration
+import org.osmdroid.tileprovider.tilesource.TileSourceFactory
+import org.osmdroid.util.GeoPoint
+import org.osmdroid.views.MapView
+import org.osmdroid.views.overlay.Marker
 import com.google.android.gms.ads.AdRequest
 import com.google.android.gms.ads.AdSize
 import com.google.android.gms.ads.AdView
@@ -24,13 +29,11 @@ import com.google.android.gms.ads.FullScreenContentCallback
 import com.google.android.gms.ads.LoadAdError
 import com.google.android.gms.ads.interstitial.InterstitialAd
 import com.google.android.gms.ads.interstitial.InterstitialAdLoadCallback
-import com.google.android.gms.maps.model.CameraPosition
-import com.google.android.gms.maps.model.LatLng
-import com.google.maps.android.compose.*
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        Configuration.getInstance().userAgentValue = packageName
         MobileAds.initialize(this) {}
         setContent { KhairulMapScreen() }
     }
@@ -40,10 +43,6 @@ class MainActivity : ComponentActivity() {
 @Composable
 private fun KhairulMapScreen() {
     val context = LocalContext.current
-    val kualaLumpur = LatLng(3.1390, 101.6869)
-    val cameraState = rememberCameraPositionState {
-        position = CameraPosition.fromLatLngZoom(kualaLumpur, 11f)
-    }
     var destination by remember { mutableStateOf("") }
 
     Scaffold(
@@ -55,17 +54,14 @@ private fun KhairulMapScreen() {
                     factory = { ctx ->
                         AdView(ctx).apply {
                             setAdSize(AdSize.BANNER)
-                            // Official Google test banner. Replace only after AdMob testing/review.
                             adUnitId = "ca-app-pub-3940256099942544/6300978111"
                             loadAd(AdRequest.Builder().build())
                         }
                     }
                 )
-                Text(
-                    "KHAIRUL MAP • Google Maps",
+                Text("KHAIRUL MAP • OpenStreetMap",
                     modifier = Modifier.fillMaxWidth().padding(8.dp),
-                    style = MaterialTheme.typography.labelSmall
-                )
+                    style = MaterialTheme.typography.labelSmall)
             }
         }
     ) { padding ->
@@ -81,43 +77,27 @@ private fun KhairulMapScreen() {
             Button(
                 onClick = {
                     if (destination.isNotBlank()) {
-                        val activity = context as? Activity
                         val openDestination = {
-                            val uri = Uri.parse("google.navigation:q=" + Uri.encode(destination))
-                            val intent = Intent(Intent.ACTION_VIEW, uri).setPackage("com.google.android.apps.maps")
-                            try {
-                                context.startActivity(intent)
-                            } catch (_: Exception) {
-                                context.startActivity(
-                                    Intent(Intent.ACTION_VIEW, Uri.parse("https://www.google.com/maps/search/?api=1&query=" + Uri.encode(destination)))
-                                )
-                            }
+                            val url = "https://www.openstreetmap.org/search?query=" + Uri.encode(destination)
+                            context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
                         }
-                        if (activity == null) {
-                            openDestination()
-                        } else {
-                            InterstitialAd.load(
-                                context,
-                                "ca-app-pub-3940256099942544/1033173712", // Official Google test interstitial
-                                AdRequest.Builder().build(),
-                                object : InterstitialAdLoadCallback() {
-                                    override fun onAdLoaded(ad: InterstitialAd) {
-                                        ad.fullScreenContentCallback = object : FullScreenContentCallback() {
-                                            override fun onAdDismissedFullScreenContent() {
-                                                openDestination()
-                                            }
-                                            override fun onAdFailedToShowFullScreenContent(error: com.google.android.gms.ads.AdError) {
-                                                openDestination()
-                                            }
-                                        }
-                                        ad.show(activity)
+                        val activity = context as? Activity
+                        if (activity == null) openDestination()
+                        else InterstitialAd.load(
+                            context,
+                            "ca-app-pub-3940256099942544/1033173712",
+                            AdRequest.Builder().build(),
+                            object : InterstitialAdLoadCallback() {
+                                override fun onAdLoaded(ad: InterstitialAd) {
+                                    ad.fullScreenContentCallback = object : FullScreenContentCallback() {
+                                        override fun onAdDismissedFullScreenContent() = openDestination()
+                                        override fun onAdFailedToShowFullScreenContent(error: com.google.android.gms.ads.AdError) = openDestination()
                                     }
-                                    override fun onAdFailedToLoad(error: LoadAdError) {
-                                        openDestination()
-                                    }
+                                    ad.show(activity)
                                 }
-                            )
-                        }
+                                override fun onAdFailedToLoad(error: LoadAdError) = openDestination()
+                            }
+                        )
                     }
                 },
                 enabled = destination.isNotBlank(),
@@ -125,20 +105,27 @@ private fun KhairulMapScreen() {
             ) {
                 Icon(Icons.Default.Navigation, contentDescription = null)
                 Spacer(Modifier.width(8.dp))
-                Text("Cari & navigasi dengan Google Maps")
+                Text("Cari di OpenStreetMap")
             }
-            GoogleMap(
+            AndroidView(
                 modifier = Modifier.fillMaxSize(),
-                cameraPositionState = cameraState,
-                properties = MapProperties(isMyLocationEnabled = false),
-                uiSettings = MapUiSettings(zoomControlsEnabled = true, myLocationButtonEnabled = false)
-            ) {
-                Marker(
-                    state = MarkerState(position = kualaLumpur),
-                    title = "Kuala Lumpur",
-                    snippet = "Lokasi permulaan"
-                )
-            }
+                factory = { ctx ->
+                    Configuration.getInstance().userAgentValue = ctx.packageName
+                    MapView(ctx).apply {
+                        setTileSource(TileSourceFactory.MAPNIK)
+                        setMultiTouchControls(true)
+                        controller.setZoom(11.0)
+                        val kl = GeoPoint(3.1390, 101.6869)
+                        controller.setCenter(kl)
+                        overlays.add(Marker(this).apply {
+                            position = kl
+                            title = "Kuala Lumpur"
+                            snippet = "Lokasi permulaan"
+                            setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_BOTTOM)
+                        })
+                    }
+                }
+            )
         }
     }
 }
