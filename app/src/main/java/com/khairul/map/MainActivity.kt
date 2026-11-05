@@ -24,6 +24,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
 import com.google.android.gms.location.LocationServices
+import com.google.android.gms.location.Priority
+import com.google.android.gms.tasks.CancellationTokenSource
 import android.location.Location
 import org.osmdroid.config.Configuration
 import org.osmdroid.tileprovider.tilesource.TileSourceFactory
@@ -63,7 +65,7 @@ private fun KhairulMapScreen() {
         if (!fine && !coarse) return
         val client = LocationServices.getFusedLocationProviderClient(context)
         try {
-            client.lastLocation.addOnSuccessListener { location ->
+            client.getCurrentLocation(Priority.PRIORITY_HIGH_ACCURACY, CancellationTokenSource().token).addOnSuccessListener { location ->
                 if (location != null) {
                     val point = GeoPoint(location.latitude, location.longitude)
                     mapView?.controller?.animateTo(point)
@@ -81,7 +83,7 @@ private fun KhairulMapScreen() {
                     mapView?.invalidate()
                     locationStatus = "Lokasi semasa berjaya dikesan"
                 } else {
-                    locationStatus = "Lokasi belum tersedia. Hidupkan GPS dan cuba lagi."
+                    locationStatus = "Lokasi belum diperoleh. Pastikan GPS dihidupkan, berada di kawasan terbuka dan cuba lagi."
                 }
             }.addOnFailureListener {
                 locationStatus = "Tidak dapat mendapatkan lokasi. Cuba lagi."
